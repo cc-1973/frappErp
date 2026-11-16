@@ -155,6 +155,7 @@ class ProductionPlanWorkOrderQuantities:
 				"qty",
 				"produced_qty",
 				"process_loss_qty",
+				"status",
 			],
 			filters=filters,
 			for_update=for_update,
@@ -197,6 +198,10 @@ class ProductionPlanWorkOrderQuantities:
 		from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
 			get_planned_loss_percentage,
 		)
+
+		# a closed Work Order makes nothing more, so the rest of its qty can be ordered again
+		if work_order.status == "Closed":
+			return flt(work_order.produced_qty) + flt(process_loss_qty)
 
 		loss_percentage = get_planned_loss_percentage(planned_loss_percentage)
 		good_qty = flt(work_order.qty) - max(
