@@ -88,10 +88,14 @@ def add_operating_cost_component_wise(stock_entry, work_order=None, op_expense_a
 def _add_operation_workstation_costs(stock_entry, work_order, row, op_expense_account):
 	from erpnext.stock.doctype.stock_entry.stock_entry import get_consumed_operating_cost
 
+	# an operation planned on a Workstation Type has no workstation
+	parent, parenttype = (
+		(row.workstation, "Workstation") if row.workstation else (row.workstation_type, "Workstation Type")
+	)
 	workstation_cost = frappe.get_all(
 		"Workstation Cost",
 		fields=["operating_component", "operating_cost"],
-		filters={"parent": row.workstation, "parenttype": "Workstation"},
+		filters={"parent": parent, "parenttype": parenttype},
 	)
 	consumed = get_consumed_operating_cost(work_order.name, stock_entry.bom_no, row.name) or []
 	total_component_rate = sum(flt(wc.operating_cost) for wc in workstation_cost)
