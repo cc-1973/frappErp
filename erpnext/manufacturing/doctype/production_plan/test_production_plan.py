@@ -3044,6 +3044,26 @@ class TestProductionPlan(ERPNextTestSuite):
 		bin.reload()
 		self.assertEqual(bin.reserved_qty_for_production_plan, 0)
 
+	def test_work_order_closed_short_leaves_its_rest_to_order_again(self):
+		from erpnext.manufacturing.doctype.work_order.work_order import close_work_order
+
+		warehouse = "_Test Warehouse - _TC"
+		rm_item = make_item(properties={"is_stock_item": 1, "valuation_rate": 10}).name
+		fg_item = make_item(properties={"is_stock_item": 1, "valuation_rate": 10}).name
+		make_bom(item=fg_item, raw_materials=[rm_item], source_warehouse=warehouse)
+		make_stock_entry(item_code=rm_item, qty=10, rate=10, target=warehouse)
+
+		plan = create_production_plan(item_code=fg_item, planned_qty=10, warehouse=warehouse)
+		plan.make_work_order()
+		work_order = frappe.get_doc("Work Order", {"production_plan": plan.name})
+		work_order.update({"skip_transfer": 1, "source_warehouse": warehouse, "fg_warehouse": warehouse})
+		work_order.submit()
+		frappe.get_doc(make_se_from_wo(work_order.name, "Manufacture", 6)).submit()
+		close_work_order(work_order.name, "Closed")
+
+		pending = ProductionPlanWorkOrderQuantities(plan.name).get_pending_quantities(plan)
+		self.assertEqual(pending["production_plan_item"][plan.po_items[0].name], 4)
+
 	def test_plan_reserves_sub_assembly_taken_from_stock(self):
 		warehouse = "_Test Warehouse - _TC"
 		rm_item = make_item(properties={"is_stock_item": 1, "valuation_rate": 10}).name
