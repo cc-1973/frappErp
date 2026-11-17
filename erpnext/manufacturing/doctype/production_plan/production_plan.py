@@ -396,7 +396,21 @@ class ProductionPlan(Document):
 				key = (row.sales_order, row.sales_order_item)
 				planned_qty[key] = planned_qty.get(key, 0) + flt(row.planned_qty)
 
+		for row in self.get_consolidated_planned_qty():
+			key = (row.sales_order, row.sales_order_item)
+			planned_qty[key] = planned_qty.get(key, 0) + row.qty
+
 		return planned_qty
+
+	def get_consolidated_planned_qty(self):
+		"""Planned qty of consolidated rows allotted to their Sales Order lines, excluding product bundle components."""
+		row_qty = {}
+		for row in self.po_items:
+			if not row.sales_order and row.sales_order_item and not row.product_bundle_item:
+				key = (row.parent, row.sales_order_item)
+				row_qty[key] = row_qty.get(key, 0) + flt(row.planned_qty)
+
+		return [row for row in allot_planned_qty(self.prod_plan_references, row_qty) if row.qty > 0]
 
 	def on_submit(self):
 		self.update_bin_qty()
@@ -702,8 +716,11 @@ def get_planned_qty_of_references(sales_orders):
 		.where(reference.parent.isin(plans))
 		.orderby(reference.idx)
 	).run(as_dict=True)
-	planned_qty = get_planned_qty_by_order_row(plans)
+	return allot_planned_qty(references, get_planned_qty_by_order_row(plans))
 
+
+def allot_planned_qty(references, planned_qty):
+	"""Allot the planned qty of each consolidated row to its Sales Order lines in reference order."""
 	allocated = []
 	for row in references:
 		key = (row.parent, row.item_reference)
