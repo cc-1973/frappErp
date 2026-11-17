@@ -44,14 +44,11 @@ class BaseStockEntry:
 			frappe.throw(msg)
 
 	def _is_new_entry_against_closed_work_order(self):
-		# material may still be returned, but nothing more made
 		return (
 			self.wo_doc.status == "Closed"
 			and self.doc.docstatus == 1
-			and (
-				self.doc.purpose == "Manufacture"
-				or (self.doc.purpose == "Material Transfer for Manufacture" and not self.doc.is_return)
-			)
+			and not self.doc.is_return
+			and self.doc.purpose in ("Material Transfer for Manufacture", "Manufacture")
 		)
 
 	def validate_alternative_items(self):
