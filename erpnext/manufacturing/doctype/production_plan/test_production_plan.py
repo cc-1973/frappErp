@@ -3048,12 +3048,15 @@ class TestProductionPlan(ERPNextTestSuite):
 		from erpnext.manufacturing.doctype.work_order.work_order import close_work_order
 
 		warehouse = "_Test Warehouse - _TC"
-		rm_item = make_item(properties={"is_stock_item": 1, "valuation_rate": 10}).name
-		fg_item = make_item(properties={"is_stock_item": 1, "valuation_rate": 10}).name
-		make_bom(item=fg_item, raw_materials=[rm_item], source_warehouse=warehouse)
+		properties = {"is_stock_item": 1, "valuation_rate": 10, "stock_uom": "Kg"}
+		rm_item = make_item(properties=properties).name
+		fg_item = make_item(properties=properties).name
+		make_bom(
+			item=fg_item, raw_materials=[rm_item], source_warehouse=warehouse, process_loss_percentage=10
+		)
 		make_stock_entry(item_code=rm_item, qty=10, rate=10, target=warehouse)
 
-		plan = create_production_plan(item_code=fg_item, planned_qty=10, warehouse=warehouse)
+		plan = create_production_plan(item_code=fg_item, planned_qty=10, warehouse=warehouse, stock_uom="Kg")
 		plan.make_work_order()
 		work_order = frappe.get_doc("Work Order", {"production_plan": plan.name})
 		work_order.update({"skip_transfer": 1, "source_warehouse": warehouse, "fg_warehouse": warehouse})
@@ -3061,8 +3064,9 @@ class TestProductionPlan(ERPNextTestSuite):
 		frappe.get_doc(make_se_from_wo(work_order.name, "Manufacture", 6)).submit()
 		close_work_order(work_order.name, "Closed")
 
+		# 6 made with 10% unplanned loss leaves 5.4 good, so 4.6 is ordered again
 		pending = ProductionPlanWorkOrderQuantities(plan.name).get_pending_quantities(plan)
-		self.assertEqual(pending["production_plan_item"][plan.po_items[0].name], 4)
+		self.assertEqual(pending["production_plan_item"][plan.po_items[0].name], 4.6)
 
 	def test_plan_reserves_sub_assembly_taken_from_stock(self):
 		warehouse = "_Test Warehouse - _TC"
