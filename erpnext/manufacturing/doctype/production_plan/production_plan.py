@@ -425,7 +425,21 @@ class ProductionPlan(Document):
 				key = (row.sales_order, row.sales_order_item)
 				planned_qty[key] = planned_qty.get(key, 0) + flt(row.planned_qty)
 
+		for row in self.get_consolidated_planned_qty():
+			key = (row.sales_order, row.sales_order_item)
+			planned_qty[key] = planned_qty.get(key, 0) + row.qty
+
 		return planned_qty
+
+	def get_consolidated_planned_qty(self):
+		"""Planned qty of consolidated rows allotted to their Sales Order lines, excluding product bundle components."""
+		rows = [
+			row
+			for row in self.po_items
+			if not row.sales_order and row.sales_order_item and not row.product_bundle_item
+		]
+		allotted = allot_planned_qty(self.prod_plan_references, *group_planned_qty_by_item_reference(rows))
+		return [row for row in allotted if row.qty > 0]
 
 	def on_submit(self):
 		self.update_bin_qty()
@@ -747,8 +761,11 @@ def get_planned_qty_of_references(sales_orders):
 		.where(reference.parent.isin(plans))
 		.orderby(reference.idx)
 	).run(as_dict=True)
-	planned_qty, item_codes = get_planned_qty_by_item_reference(plans)
+	return allot_planned_qty(references, *get_planned_qty_by_item_reference(plans))
 
+
+def allot_planned_qty(references, planned_qty, item_codes):
+	"""Allot the planned qty of each consolidated row to its Sales Order lines in reference order."""
 	allocated = []
 	for row in references:
 		key = (row.parent, row.item_reference)
@@ -779,12 +796,16 @@ def get_plans_with_references(sales_orders):
 
 
 def get_planned_qty_by_item_reference(plans):
-	"""Planned qty and item of the plan rows each reference points to; older plans point by Sales Order Item."""
 	rows = frappe.get_all(
 		"Production Plan Item",
 		filters={"parent": ("in", plans)},
 		fields=["parent", "item_reference", "sales_order_item", "item_code", "planned_qty"],
 	)
+	return group_planned_qty_by_item_reference(rows)
+
+
+def group_planned_qty_by_item_reference(rows):
+	"""Planned qty and item of plan rows per plan and item reference; older plans point by Sales Order Item."""
 	planned_qty, item_codes = {}, {}
 	for row in rows:
 		key = (row.parent, row.item_reference or row.sales_order_item)
