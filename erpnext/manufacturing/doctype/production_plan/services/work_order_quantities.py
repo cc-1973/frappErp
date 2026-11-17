@@ -199,11 +199,11 @@ class ProductionPlanWorkOrderQuantities:
 			get_planned_loss_percentage,
 		)
 
-		# a closed Work Order makes nothing more, so the rest of its qty can be ordered again
-		if work_order.status == "Closed":
-			return flt(work_order.produced_qty) + flt(process_loss_qty)
-
 		loss_percentage = get_planned_loss_percentage(planned_loss_percentage)
+		# a closed Work Order makes nothing more: count only its good output, so its loss is ordered again
+		if work_order.status == "Closed":
+			return flt(work_order.produced_qty) / (1 - loss_percentage / 100)
+
 		good_qty = flt(work_order.qty) - max(
 			flt(process_loss_qty), flt(work_order.qty) * loss_percentage / 100
 		)
