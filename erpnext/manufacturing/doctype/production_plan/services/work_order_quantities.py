@@ -17,8 +17,9 @@ class ProductionPlanWorkOrderQuantities:
 		self.production_plan = production_plan
 
 	def validate_work_order(self, work_order, *, process_loss_qty=0):
-		# a closed Work Order makes nothing more, so only cancellations can change its count, downwards
-		if work_order.status == "Closed":
+		# A closed Work Order makes nothing more, so only cancellations can change its count, downwards.
+		# Read the stored status: the one on the document is not trusted before submit.
+		if frappe.db.get_value("Work Order", work_order.name, "status") == "Closed":
 			return
 
 		from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
@@ -43,7 +44,10 @@ class ProductionPlanWorkOrderQuantities:
 			precision,
 		)
 		committed_qty = flt(
-			self._get_committed_qty(work_order, process_loss_qty, row.process_loss_percentage), precision
+			self._get_committed_qty(
+				work_order, process_loss_qty, row.process_loss_percentage, is_closed=False
+			),
+			precision,
 		)
 		if committed_qty > maximum_qty:
 			frappe.throw(
@@ -193,6 +197,7 @@ class ProductionPlanWorkOrderQuantities:
 					work_order,
 					work_order.process_loss_qty,
 					loss_percentages.get(work_order[field]),
+					is_closed=work_order.status == "Closed",
 				)
 		return quantities
 
@@ -210,14 +215,14 @@ class ProductionPlanWorkOrderQuantities:
 			)
 		return loss_percentages
 
-	def _get_committed_qty(self, work_order, process_loss_qty, planned_loss_percentage):
+	def _get_committed_qty(self, work_order, process_loss_qty, planned_loss_percentage, is_closed):
 		from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
 			get_planned_loss_percentage,
 		)
 
 		loss_percentage = get_planned_loss_percentage(planned_loss_percentage)
 		# a closed Work Order makes nothing more: count only its good output, so its loss is ordered again
-		if work_order.status == "Closed":
+		if is_closed:
 			return flt(work_order.produced_qty) / (1 - loss_percentage / 100)
 
 		good_qty = flt(work_order.qty) - max(
