@@ -17,11 +17,6 @@ class ProductionPlanWorkOrderQuantities:
 		self.production_plan = production_plan
 
 	def validate_work_order(self, work_order, *, process_loss_qty=0):
-		# A closed Work Order makes nothing more, so only cancellations can change its count, downwards.
-		# Read the stored status: the one on the document is not trusted before submit.
-		if frappe.db.get_value("Work Order", work_order.name, "status") == "Closed":
-			return
-
 		from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
 			round_up_to_whole_unit,
 		)
@@ -43,10 +38,10 @@ class ProductionPlanWorkOrderQuantities:
 			round_up_to_whole_unit(row.required_qty * (1 + allowance / 100) - committed, row.stock_uom),
 			precision,
 		)
+		# the stored status, as the one on the document is not trusted before submit
+		is_closed = frappe.db.get_value("Work Order", work_order.name, "status") == "Closed"
 		committed_qty = flt(
-			self._get_committed_qty(
-				work_order, process_loss_qty, row.process_loss_percentage, is_closed=False
-			),
+			self._get_committed_qty(work_order, process_loss_qty, row.process_loss_percentage, is_closed),
 			precision,
 		)
 		if committed_qty > maximum_qty:
@@ -221,13 +216,13 @@ class ProductionPlanWorkOrderQuantities:
 		)
 
 		loss_percentage = get_planned_loss_percentage(planned_loss_percentage)
-		# a closed Work Order makes nothing more: count only its good output, so its loss is ordered again
-		if is_closed:
-			return flt(work_order.produced_qty) / (1 - loss_percentage / 100)
-
 		good_qty = flt(work_order.qty) - max(
 			flt(process_loss_qty), flt(work_order.qty) * loss_percentage / 100
 		)
-		committed_qty = good_qty / (1 - loss_percentage / 100)
 		# Excess loss in existing records must not erase finished goods already produced.
-		return max(0, flt(work_order.produced_qty), committed_qty)
+		committed_qty = max(0, flt(work_order.produced_qty), good_qty / (1 - loss_percentage / 100))
+		if is_closed:
+			# A closed Work Order makes nothing more, so its unmade qty and loss are ordered again.
+			# Closing never raises its count, so it cannot push other Work Orders over the plan.
+			return min(committed_qty, flt(work_order.produced_qty) / (1 - loss_percentage / 100))
+		return committed_qty
