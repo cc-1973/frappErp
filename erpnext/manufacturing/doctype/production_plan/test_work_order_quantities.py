@@ -312,6 +312,20 @@ class TestProductionPlanWorkOrderQuantities(ERPNextTestSuite):
 		self.assertEqual(work_order.reload().produced_qty, 94)
 		self.assert_pending_qty(plan, field, 0)
 
+	def test_closing_an_order_does_not_block_cancelling_a_sibling(self):
+		field = "production_plan_item"
+		plan = self.make_plan(qty=90, consider_process_loss=True)
+		first = self.create_work_order(plan, field)
+		first.qty = 50
+		first.submit()
+		second = self.create_work_order(plan, field)
+		second.submit()
+		self.manufacture_with_loss(first, loss_qty=0)
+		manufacture = self.manufacture_with_loss(second, 20, loss_qty=0)
+		close_work_order(first.name, "Closed")
+		manufacture.cancel()
+		self.assertEqual(second.reload().produced_qty, 0)
+
 	def test_whole_number_replacement_rounds_up(self):
 		field = "production_plan_sub_assembly_item"
 		rm_item = make_item(properties={"is_stock_item": 1, "stock_uom": "Kg", "valuation_rate": 10}).name
