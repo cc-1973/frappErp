@@ -305,10 +305,12 @@ class TestProductionPlanWorkOrderQuantities(ERPNextTestSuite):
 		plan = self.make_plan(qty=90, consider_process_loss=True)
 		work_order = self.create_work_order(plan, field)
 		work_order.submit()
-		manufacture = self.manufacture_with_loss(work_order, loss_qty=5)
+		self.manufacture_with_loss(work_order, 94, loss_qty=0)
+		last_entry = self.manufacture_with_loss(work_order, 6, loss_qty=5)
 		close_work_order(work_order.name, "Closed")
-		manufacture.cancel()
-		self.assert_pending_qty(plan, field, 100)
+		last_entry.cancel()
+		self.assertEqual(work_order.reload().produced_qty, 94)
+		self.assert_pending_qty(plan, field, 0)
 
 	def test_whole_number_replacement_rounds_up(self):
 		field = "production_plan_sub_assembly_item"
