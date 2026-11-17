@@ -384,11 +384,7 @@ class ProductionPlan(Document):
 				throw_sales_order_qty_exceeded(qty, row.stock_uom, row.item_code, sales_order, unplanned_qty)
 
 	def validate_bundle_component_planned_qty(self):
-		planned_qty = {}
-		for row in self.po_items:
-			if row.sales_order and row.sales_order_item and row.product_bundle_item:
-				key = (row.sales_order, row.sales_order_item, row.item_code)
-				planned_qty[key] = planned_qty.get(key, 0) + flt(row.planned_qty)
+		planned_qty = self.get_bundle_component_planned_qty()
 		if not planned_qty:
 			return
 
@@ -417,6 +413,20 @@ class ProductionPlan(Document):
 			if flt(qty, precision) > unplanned_qty:
 				throw_sales_order_qty_exceeded(qty, packed.uom, item_code, sales_order, unplanned_qty)
 
+	def get_bundle_component_planned_qty(self):
+		"""Planned qty per Sales Order line and product bundle component."""
+		planned_qty = {}
+		for row in self.po_items:
+			if row.sales_order and row.sales_order_item and row.product_bundle_item:
+				key = (row.sales_order, row.sales_order_item, row.item_code)
+				planned_qty[key] = planned_qty.get(key, 0) + flt(row.planned_qty)
+
+		for row in self.get_consolidated_planned_qty(bundle_components=True):
+			key = (row.sales_order, row.sales_order_item, row.item_code)
+			planned_qty[key] = planned_qty.get(key, 0) + row.qty
+
+		return planned_qty
+
 	def get_so_item_planned_qty(self):
 		"""Planned qty per Sales Order line, excluding product bundle components."""
 		planned_qty = {}
@@ -431,12 +441,14 @@ class ProductionPlan(Document):
 
 		return planned_qty
 
-	def get_consolidated_planned_qty(self):
-		"""Planned qty of consolidated rows allotted to their Sales Order lines, excluding product bundle components."""
+	def get_consolidated_planned_qty(self, bundle_components=False):
+		"""Planned qty of consolidated rows allotted to their Sales Order lines, of bundle components or of other items."""
 		rows = [
 			row
 			for row in self.po_items
-			if not row.sales_order and row.sales_order_item and not row.product_bundle_item
+			if not row.sales_order
+			and row.sales_order_item
+			and bool(row.product_bundle_item) == bundle_components
 		]
 		allotted = allot_planned_qty(self.prod_plan_references, *group_planned_qty_by_item_reference(rows))
 		return [row for row in allotted if row.qty > 0]
