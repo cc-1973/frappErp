@@ -105,6 +105,7 @@ class ProductionPlanWorkOrderQuantities:
 
 	def get_pending_quantities(self, plan):
 		from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
+			get_qty_before_process_loss,
 			round_up_to_whole_unit,
 		)
 
@@ -115,12 +116,15 @@ class ProductionPlanWorkOrderQuantities:
 			("po_items", "production_plan_item"),
 			("sub_assembly_items", "production_plan_sub_assembly_item"),
 		):
+			# round up only the rest, so output already made is not ordered again for rounding
 			pending[reference_field] = {
 				row.name: max(
 					0,
 					flt(
 						round_up_to_whole_unit(
-							self.get_order_qty(row, reference_field)
+							get_qty_before_process_loss(
+								row.get(QTY_FIELDS[reference_field]), row.process_loss_percentage, uom=None
+							)
 							- committed[reference_field].get(row.name, 0),
 							row.stock_uom,
 						),
