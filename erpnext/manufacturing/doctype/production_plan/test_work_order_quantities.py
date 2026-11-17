@@ -300,6 +300,16 @@ class TestProductionPlanWorkOrderQuantities(ERPNextTestSuite):
 		self.assertEqual(work_order.reload().produced_qty, 100)
 		self.assert_pending_qty(plan, field, 0)
 
+	def test_closed_order_losing_less_than_planned_can_cancel_its_manufacture(self):
+		field = "production_plan_item"
+		plan = self.make_plan(qty=90, consider_process_loss=True)
+		work_order = self.create_work_order(plan, field)
+		work_order.submit()
+		manufacture = self.manufacture_with_loss(work_order, loss_qty=5)
+		close_work_order(work_order.name, "Closed")
+		manufacture.cancel()
+		self.assert_pending_qty(plan, field, 100)
+
 	def test_whole_number_replacement_rounds_up(self):
 		field = "production_plan_sub_assembly_item"
 		rm_item = make_item(properties={"is_stock_item": 1, "stock_uom": "Kg", "valuation_rate": 10}).name
