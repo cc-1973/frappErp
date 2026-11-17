@@ -342,7 +342,7 @@ class TestProductionPlanWorkOrderQuantities(ERPNextTestSuite):
 		self.assertEqual(work_order.reload().produced_qty, 90)
 		self.assert_pending_qty(plan, field, 0)
 
-	def test_stopped_and_closed_orders_consume_quantity(self):
+	def test_stopped_order_consumes_quantity_and_closed_order_releases_it(self):
 		plan = self.make_plan()
 		for field in REFERENCE_FIELDS:
 			with self.subTest(field=field):
@@ -352,7 +352,7 @@ class TestProductionPlanWorkOrderQuantities(ERPNextTestSuite):
 				self.assert_pending_qty(plan, field, 0)
 				stop_unstop(first.name, "Resumed")
 				close_work_order(first.name, "Closed")
-				self.assert_pending_qty(plan, field, 0)
+				self.assert_pending_qty(plan, field, 100)
 
 	def test_fractional_quantities(self):
 		plan = self.make_plan(qty=0.3)
