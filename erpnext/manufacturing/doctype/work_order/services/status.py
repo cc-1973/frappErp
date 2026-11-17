@@ -358,8 +358,9 @@ class StatusService:
 			previous_loss_qty = frappe.db.get_value(
 				"Work Order", self.doc.name, "process_loss_qty", for_update=True
 			)
-			if process_loss_qty < flt(previous_loss_qty):
-				# Replacement Work Orders may have consumed the recorded loss.
+			# Replacement Work Orders may have consumed the recorded loss, unless the
+			# Work Order is closed: then it counts only its produced qty, not its loss.
+			if process_loss_qty < flt(previous_loss_qty) and self.doc.status != "Closed":
 				quantities.validate_work_order(self.doc, process_loss_qty=process_loss_qty)
 		self.doc.db_set("process_loss_qty", process_loss_qty)
 
