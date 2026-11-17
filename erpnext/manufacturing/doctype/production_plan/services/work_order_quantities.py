@@ -17,6 +17,10 @@ class ProductionPlanWorkOrderQuantities:
 		self.production_plan = production_plan
 
 	def validate_work_order(self, work_order, *, process_loss_qty=0):
+		# a closed Work Order makes nothing more, so only cancellations can change its count, downwards
+		if work_order.status == "Closed":
+			return
+
 		from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
 			round_up_to_whole_unit,
 		)
