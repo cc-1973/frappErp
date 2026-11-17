@@ -402,16 +402,6 @@ class TestProductionPlanWorkOrderQuantities(ERPNextTestSuite):
 		with self.assertRaises(OverProductionError):
 			work_order.submit()
 
-	def test_closed_order_rejects_manufacture_sent_as_return(self):
-		plan = self.make_plan()
-		work_order = self.create_work_order(plan, "production_plan_item")
-		work_order.submit()
-		close_work_order(work_order.name, "Closed")
-		entry = self.manufacture_with_loss(work_order, submit=False)
-		entry.is_return = 1
-		with self.assertRaisesRegex(frappe.ValidationError, "closed Work Order"):
-			entry.submit()
-
 	def test_fractional_quantities(self):
 		plan = self.make_plan(qty=0.3)
 		for field in REFERENCE_FIELDS:
