@@ -57,20 +57,23 @@ export function accountKpis(accounts, format) {
 			  )
 			: __("Ledger expense this fiscal year; timesheets don't post here"),
 	};
-	if (!accounts.budget_count)
+	if (!accounts.budget_count) {
+		const committed = {
+			label: __("Committed"),
+			value: format.short(accounts.committed),
+			hint: __("Open purchase orders + material requests"),
+		};
+		if (!accounts.access.income) return [actual, committed];
 		return [
 			actual,
-			{
-				label: __("Committed"),
-				value: format.short(accounts.committed),
-				hint: __("Open purchase orders + material requests"),
-			},
+			committed,
 			{
 				label: __("Income"),
 				value: format.short(accounts.income_actual),
 				hint: __("Ledger income this fiscal year; mostly sales invoices"),
 			},
 		];
+	}
 	return [
 		{
 			label: __("Budget"),
@@ -110,13 +113,13 @@ export function accountsReports(accounts) {
 		from_fiscal_year: accounts.fiscal_year,
 		to_fiscal_year: accounts.fiscal_year,
 	};
-	const routes = {
-		"General Ledger": ledgerReportRoute(accounts),
-		"Profit and Loss Statement": report_route("Profit and Loss Statement", {
+	const routes = { "General Ledger": ledgerReportRoute(accounts) };
+	// the statement shows the project's income
+	if (accounts.access.income)
+		routes["Profit and Loss Statement"] = report_route("Profit and Loss Statement", {
 			...year,
 			project: accounts.project,
-		}),
-	};
+		});
 	// the variance report lists Budget records
 	if (accounts.access.budgets)
 		routes["Budget Variance Report"] = report_route("Budget Variance Report", {

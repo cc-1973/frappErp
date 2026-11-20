@@ -19,6 +19,7 @@ from erpnext.projects.doctype.project.costing.project_costing import (
 	permitted_reports,
 )
 from erpnext.projects.doctype.project.costing.queries import ProjectCostQueries
+from erpnext.projects.doctype.project.costing.test_financial_access import grant_financial_levels
 from erpnext.projects.doctype.project.project import update_costing_and_billing
 from erpnext.projects.doctype.project.test_project import issue_to_project, make_project
 from erpnext.projects.doctype.timesheet.test_timesheet import make_timesheet
@@ -170,12 +171,14 @@ class TestProjectCosting(ERPNextTestSuite):
 
 	def test_viewers_see_the_totals_and_only_what_they_may_read(self) -> None:
 		"""A Projects User sees the same totals, without costing rates or the invoices behind them. A
-		Sales User the project is shared with cannot read timesheets: the labour lists are left out,
-		and every section still builds."""
+		Sales User the project is shared with, whose role is granted the financial levels, cannot read
+		timesheets: the labour lists are left out, and every section still builds."""
 		project = self.project_with_documents()
 		cost = get_project_costing(project.name)["summary"]["cost"]
 		sales_viewer = create_user(SALES_VIEWER, "Sales User").name
 		frappe.share.add("Project", project.name, sales_viewer, read=1)
+		grant_financial_levels("Project", "Sales User")
+		self.addCleanup(frappe.clear_cache, doctype="Project")
 
 		try:
 			frappe.set_user(make_viewer())

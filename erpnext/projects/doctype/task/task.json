@@ -299,6 +299,7 @@
    "oldfieldname": "actual_budget",
    "oldfieldtype": "Currency",
    "options": "Company:company:default_currency",
+   "permlevel": 2,
    "read_only": 1
   },
   {
@@ -310,6 +311,7 @@
    "fieldtype": "Currency",
    "label": "Total Billable Amount (via Timesheet)",
    "no_copy": 1,
+   "permlevel": 3,
    "read_only": 1
   },
   {
@@ -436,7 +438,7 @@
  "link_display_mode": "Search",
  "links": [],
  "max_attachments": 5,
- "modified": "2026-11-02 16:48:25.316976",
+ "modified": "2026-11-19 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Projects",
  "name": "Task",
@@ -480,6 +482,30 @@
   {
    "role": "Manufacturing User",
    "select": 1
+  },
+  {
+   "permlevel": 2,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User"
+  },
+  {
+   "permlevel": 2,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager"
+  },
+  {
+   "permlevel": 3,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User"
+  },
+  {
+   "permlevel": 3,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager"
   }
  ],
  "quick_entry": 1,

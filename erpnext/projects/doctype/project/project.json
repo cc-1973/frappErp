@@ -302,6 +302,7 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "project_details",
    "fieldtype": "Section Break",
    "label": "Costing and Billing",
@@ -315,18 +316,21 @@
    "label": "Estimated Cost",
    "oldfieldname": "project_value",
    "oldfieldtype": "Currency",
-   "options": "Company:company:default_currency"
+   "options": "Company:company:default_currency",
+   "permlevel": 2
   },
   {
    "fieldname": "total_costing_amount",
    "fieldtype": "Currency",
    "label": "Total Costing Amount (via Timesheet)",
+   "permlevel": 2,
    "read_only": 1
   },
   {
    "fieldname": "total_purchase_cost",
    "fieldtype": "Currency",
    "label": "Total Purchase Cost (via Purchase Invoice)",
+   "permlevel": 2,
    "read_only": 1
   },
   {
@@ -346,24 +350,28 @@
    "fieldname": "total_sales_amount",
    "fieldtype": "Currency",
    "label": "Total Sales amount (via Sales Order)",
+   "permlevel": 3,
    "read_only": 1
   },
   {
    "fieldname": "total_billable_amount",
    "fieldtype": "Currency",
    "label": "Total Billable amount (via Timesheet)",
+   "permlevel": 3,
    "read_only": 1
   },
   {
    "fieldname": "total_billed_amount",
    "fieldtype": "Currency",
    "label": "Total Billed amount (via Sales Invoice)",
+   "permlevel": 3,
    "read_only": 1
   },
   {
    "fieldname": "total_consumed_material_cost",
    "fieldtype": "Currency",
    "label": "Total Consumed Material Cost",
+   "permlevel": 2,
    "read_only": 1
   },
   {
@@ -373,6 +381,7 @@
    "options": "Cost Center"
   },
   {
+   "collapsible": 1,
    "fieldname": "margin",
    "fieldtype": "Section Break",
    "label": "Margin",
@@ -386,6 +395,7 @@
    "oldfieldname": "gross_margin_value",
    "oldfieldtype": "Currency",
    "options": "Company:company:default_currency",
+   "permlevel": 3,
    "read_only": 1
   },
   {
@@ -398,6 +408,7 @@
    "label": "Gross Margin %",
    "oldfieldname": "per_gross_margin",
    "oldfieldtype": "Currency",
+   "permlevel": 3,
    "read_only": 1
   },
   {
@@ -504,7 +515,8 @@
    "fieldname": "costing_dashboard",
    "fieldtype": "Vue Component",
    "label": "Costing Dashboard",
-   "options": "erpnext.project_costing"
+   "options": "erpnext.project_costing",
+   "permlevel": 2
   },
   {
    "fieldname": "budgets_tab",
@@ -515,7 +527,8 @@
    "depends_on": "eval:!doc.__islocal",
    "fieldname": "budgets_html",
    "fieldtype": "HTML",
-   "label": "Budgets"
+   "label": "Budgets",
+   "permlevel": 2
   },
   {
    "fieldname": "monitor_progress_tab",
@@ -566,7 +579,7 @@
  "idx": 29,
  "links": [],
  "max_attachments": 4,
- "modified": "2026-11-13 12:52:01.000000",
+ "modified": "2026-11-19 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Projects",
  "name": "Project",
@@ -697,6 +710,32 @@
   {
    "role": "Support Team",
    "select": 1
+  },
+  {
+   "permlevel": 2,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User",
+   "write": 1
+  },
+  {
+   "permlevel": 2,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager",
+   "write": 1
+  },
+  {
+   "permlevel": 3,
+   "read": 1,
+   "report": 1,
+   "role": "Projects User"
+  },
+  {
+   "permlevel": 3,
+   "read": 1,
+   "report": 1,
+   "role": "Projects Manager"
   }
  ],
  "quick_entry": 1,

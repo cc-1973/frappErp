@@ -64,7 +64,7 @@ const open_report = () => host.navigate?.(ledgerReportRoute(props.accounts));
 			</template>
 
 			<div class="mb-3 mt-2 flex flex-wrap items-center gap-2">
-				<TabButtons v-model="kind" :options="kinds" size="sm" />
+				<TabButtons v-if="accounts.access.income" v-model="kind" :options="kinds" size="sm" />
 			</div>
 
 			<ErrorMessage v-if="entries.error" :message="entries.error.message" />

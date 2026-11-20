@@ -23,7 +23,7 @@ class HeadlineNumbers {
 		const view = this.view;
 		const cost = this.cost(__("Cost to date"), this.sources());
 		if (view.labour_understated) Object.assign(cost, this.unpriced_labour(cost.hint));
-		if (view.internal) return [cost, this.hours()];
+		if (this.without_billing) return [cost, this.hours()];
 		return [cost, this.billed(), this.margin(__("Gross margin"))];
 	}
 
@@ -31,7 +31,7 @@ class HeadlineNumbers {
 		const view = this.view;
 		const items = [this.cost(__("Final cost"), this.sources())];
 		if (view.has_estimate) items.push(this.final_variance());
-		if (view.internal) return [...items, this.hours()];
+		if (this.without_billing) return [...items, this.hours()];
 		items.push(this.billed(), this.margin(__("Final gross margin")));
 		if (!view.has_estimate) items.push(this.hours());
 		return items.slice(0, 4);
@@ -40,7 +40,7 @@ class HeadlineNumbers {
 	cancelled() {
 		const view = this.view;
 		const items = [this.cost(__("Cost incurred"), this.sources())];
-		if (view.internal) return [...items, this.hours()];
+		if (this.without_billing) return [...items, this.hours()];
 		return [
 			...items,
 			{ ...this.billed(), sub: __("Recovered before cancelling") },
@@ -50,6 +50,11 @@ class HeadlineNumbers {
 				hint: __("Billed − cost incurred"),
 			},
 		];
+	}
+
+	// An internal project has no billing; a user without access to billing and margin sees none.
+	get without_billing() {
+		return this.view.internal || !this.view.access.margin;
 	}
 
 	cost(label, hint) {

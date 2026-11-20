@@ -10,6 +10,7 @@ from frappe import _
 from frappe.model import get_permitted_fields
 from frappe.utils import add_days, date_diff, flt, getdate
 
+from erpnext.projects.doctype.project.costing.financial_access import get_financial_access
 from erpnext.projects.doctype.project.project_overview_breakdown import TaskBreakdown
 from erpnext.projects.doctype.project.project_overview_progress import PlannedVsCompleted
 from erpnext.projects.doctype.project.project_overview_unbilled import get_unbilled_time
@@ -32,7 +33,6 @@ PROJECT_FIELDS = (
 	"gross_margin",
 	"per_gross_margin",
 )
-MARGIN_FIELDS = ("total_billed_amount", "gross_margin", "per_gross_margin")
 
 
 @frappe.whitelist()
@@ -129,13 +129,16 @@ class ProjectOverview:
 		return TaskBreakdown(self).by_completer() if self.is_closed else None
 
 	def unbilled(self) -> dict | None:
+		"""None for a user who may not see the project's billing."""
+		if not self.financial_access.margin:
+			return None
 		return get_unbilled_time(self.project.name)
 
 	def profitability(self) -> dict | None:
 		"""Billed against cost, using the gross margin the project stores for its Costing tab, so the two
 		always agree; cost is what billing less that margin leaves. With nothing billed there is no
-		margin percentage to show. None when the user's permission levels hide those fields."""
-		if self.hidden_fields.intersection(MARGIN_FIELDS):
+		margin percentage to show. None unless the user may see both the project's cost and its margin."""
+		if not (self.financial_access.cost and self.financial_access.margin):
 			return None
 		billed = flt(self.project.total_billed_amount)
 		margin = flt(self.project.gross_margin)
@@ -315,6 +318,10 @@ class ProjectOverview:
 	def is_closed(self) -> bool:
 		"""A completed or cancelled project's overview reports how it ended rather than what is open."""
 		return self.project.status in CLOSED_STATUSES
+
+	@cached_property
+	def financial_access(self) -> frappe._dict:
+		return get_financial_access()
 
 	def can_be_late(self, task: frappe._dict) -> bool:
 		"""Only a task with both an Expected End Date and a Completed On can be judged on time or late."""

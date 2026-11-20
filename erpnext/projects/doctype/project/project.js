@@ -119,20 +119,6 @@ frappe.ui.form.on("Project", {
 		frm.toggle_display("budgets_html", frappe.model.can_read("Budget"));
 		frm.trigger("render_budgets");
 
-		// the costing dashboard shows these totals; they stay in the meta for reports and list views
-		frm.toggle_display(
-			[
-				"total_costing_amount",
-				"total_purchase_cost",
-				"total_sales_amount",
-				"total_billable_amount",
-				"total_billed_amount",
-				"total_consumed_material_cost",
-				"margin",
-			],
-			false
-		);
-
 		// the Tasks list is (re)built only once its tab is shown for this document
 		frm.tasks_list = null;
 		frm.trigger("load_tasks_tab");
@@ -659,7 +645,13 @@ frappe.ui.form.on("Project", {
 	},
 
 	render_budgets: function (frm) {
-		if (frm.is_new() || !frappe.model.can_read("Budget")) return;
+		const budgets_field = frm.fields_dict.budgets_html.df;
+		if (
+			frm.is_new() ||
+			!frappe.model.can_read("Budget") ||
+			!frm.get_perm(budgets_field.permlevel, "read")
+		)
+			return;
 		const STATUS_THEMES = { Active: "green", Draft: "orange", Cancelled: "gray" };
 		frappe.require("embedded_list.bundle.js").then(() => {
 			let budgets = {};
