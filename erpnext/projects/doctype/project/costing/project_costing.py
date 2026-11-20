@@ -10,6 +10,10 @@ from frappe.utils import add_months, flt, getdate
 
 from erpnext.projects.doctype.project.costing.billing import INVOICE_PAGE, ProjectBilling
 from erpnext.projects.doctype.project.costing.drivers import CostDrivers
+from erpnext.projects.doctype.project.costing.financial_access import (
+	check_financial_access,
+	get_financial_access,
+)
 from erpnext.projects.doctype.project.costing.queries import (
 	CONSUMPTION_VOUCHER_TYPES,
 	MonthlyAmounts,
@@ -30,6 +34,8 @@ SOURCE_DOCTYPES = {
 }
 # What the Costing tab's buttons create.
 NEW_DOCTYPES = ("Timesheet", "Sales Order", "Sales Invoice")
+# The summary's billing and margin figures, left out for a user without access to them.
+MARGIN_SUMMARY_KEYS = ("contract", "billed", "billed_percent", "margin", "margin_percent", "planned_margin")
 
 
 @frappe.whitelist(methods=["GET"])
@@ -38,8 +44,10 @@ def get_project_costing(project: str) -> dict:
 
 	Every amount is calculated from the documents booked against the project when the tab asks,
 	not read from the totals the Project stores, so it is current even before those are updated.
+	It needs access to the project's cost; billing and margin come only with access to them.
 	"""
 	check_access(project)
+	check_financial_access("cost")
 	return ProjectCosting(project).build()
 
 
@@ -48,6 +56,7 @@ def get_project_invoices(project: str, start: int = 0) -> list[dict]:
 	"""A page of the invoices billed to the project, newest first. The Billing card pages through
 	them when its invoices name the project in different ways and no list filter finds them all."""
 	check_access(project)
+	check_financial_access("margin")
 	billing = ProjectBilling(project, get_costing_access())
 	return billing.invoices(start=max(start, 0), page_length=INVOICE_PAGE) or []
 
@@ -88,12 +97,17 @@ class ProjectCosting:
 	def summary(self) -> dict:
 		summary = CostingSummary(self.project, self.totals, self.contract).build()
 		summary["hours"] = sum(self.monthly_hours.values())
+		if not self.access["margin"]:
+			for key in MARGIN_SUMMARY_KEYS:
+				summary.pop(key)
 		return summary
 
 	def monthly(self) -> list[dict]:
 		return monthly_rows({**self.monthly_amounts, "hours": self.monthly_hours})
 
-	def billing(self) -> dict:
+	def billing(self) -> dict | None:
+		if not self.access["margin"]:
+			return None
 		return ProjectBilling(self.project.name, self.access).build()
 
 	def drivers(self) -> dict:
@@ -120,7 +134,7 @@ class ProjectCosting:
 	@cached_property
 	def monthly_amounts(self) -> dict[str, MonthlyAmounts]:
 		"""Each cost source, then billing, by month. Expense Claims count only with HRMS, which adds
-		them to the Project's gross margin."""
+		them to the Project's gross margin. Billing only for a user with access to it."""
 		amounts = {
 			"labour": self.queries.labour_cost(by_month=True),
 			"purchases": self.queries.purchase_cost(by_month=True),
@@ -128,7 +142,8 @@ class ProjectCosting:
 		}
 		if has_hrms():
 			amounts["expenses"] = self.queries.expense_claim_cost(by_month=True)
-		amounts["billed"] = self.queries.billed_amount(by_month=True)
+		if self.access["margin"]:
+			amounts["billed"] = self.queries.billed_amount(by_month=True)
 		return amounts
 
 	@cached_property
@@ -141,17 +156,19 @@ class ProjectCosting:
 
 	@cached_property
 	def contract(self) -> float:
-		return self.queries.sales_order_amount()
+		return self.queries.sales_order_amount() if self.access["margin"] else 0
 
 
 def get_costing_access() -> dict:
 	"""What the user may open behind the Costing tab's totals, and which documents its buttons may
 	create.
 
-	Every user who can read the Project sees the totals. The documents behind them, and the
-	amounts split by person or supplier, follow the user's permission on each doctype.
+	`cost` and `margin` follow the permission levels of the Project's cost and margin fields. The
+	documents behind the totals, and the amounts split by person or supplier, follow the user's
+	permission on each doctype.
 	"""
 	access = {key: can_read(doctype) for key, doctype in SOURCE_DOCTYPES.items()}
+	access.update(get_financial_access())
 	access["labour"] = can_read_labour_cost()
 	# Materials open as Stock Entries; the list behind them reads stock ledger rows.
 	access["materials"] = can_read("Stock Entry") and can_read("Stock Ledger Entry")

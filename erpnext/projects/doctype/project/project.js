@@ -645,7 +645,13 @@ frappe.ui.form.on("Project", {
 	},
 
 	render_budgets: function (frm) {
-		if (frm.is_new() || !frappe.model.can_read("Budget")) return;
+		const budgets_field = frm.fields_dict.budgets_html.df;
+		if (
+			frm.is_new() ||
+			!frappe.model.can_read("Budget") ||
+			!frm.get_perm(budgets_field.permlevel, "read")
+		)
+			return;
 		const STATUS_THEMES = { Active: "green", Draft: "orange", Cancelled: "gray" };
 		frappe.require("embedded_list.bundle.js").then(() => {
 			let budgets = {};

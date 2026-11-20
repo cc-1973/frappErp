@@ -12,6 +12,10 @@ from pypika.enums import DatePart
 
 from erpnext.accounts.utils import get_fiscal_year
 from erpnext.projects.doctype.project.costing.budgets import BUDGET_FIELDS, account_status, budget_summary
+from erpnext.projects.doctype.project.costing.financial_access import (
+	check_financial_access,
+	get_financial_access,
+)
 from erpnext.projects.doctype.project.costing.project_costing import (
 	can_create,
 	can_read,
@@ -39,10 +43,12 @@ def get_project_accounts(project: str) -> dict:
 	"""Return the data behind the Costing tab's Accounts view: the project's ledger, commitments and
 	Budget records by account, for the company's current fiscal year.
 
-	Reading the ledger needs GL Entry access. Budget records need Budget access (Accounts Manager);
-	without it, the accounts come back without them.
+	Reading the ledger needs GL Entry access and access to the project's cost. Budget records need
+	Budget access (Accounts Manager); without it, the accounts come back without them. Income
+	accounts come only with access to the project's billing and margin.
 	"""
 	check_access(project)
+	check_financial_access("cost")
 	frappe.has_permission("GL Entry", "read", throw=True)
 	return ProjectAccounts(project).build()
 
@@ -58,8 +64,12 @@ def get_ledger_entries(
 	year, newest first, optionally for the accounts of one root type ("Expense" or "Income").
 
 	The balance sheet side of each voucher (debtors, creditors, stock) is left out, so an amount
-	shows once, on the account it was spent or earned on."""
+	shows once, on the account it was spent or earned on. Entries on Income accounts need access to
+	the project's billing and margin, so without it `root_type` must be "Expense"."""
 	check_access(project)
+	check_financial_access("cost")
+	if root_type != "Expense":
+		check_financial_access("margin")
 	company = frappe.db.get_value("Project", project, "company")
 	period = current_fiscal_year(company)
 	filters = {
@@ -103,6 +113,7 @@ class ProjectAccounts:
 		self.project = frappe.db.get_value("Project", project, ["name", "company"], as_dict=True)
 		self.fiscal_year = current_fiscal_year(self.project.company)
 		self.can_read_budgets = can_read("Budget")
+		self.can_see_income = get_financial_access().margin
 
 	def build(self) -> dict:
 		rows = [self.account_row(account) for account in self.accounts]
@@ -117,6 +128,7 @@ class ProjectAccounts:
 				"budgets": self.can_read_budgets,
 				# a budget added from the tab is submitted as well as created
 				"manage_budgets": can_create("Budget") and can_submit("Budget"),
+				"income": self.can_see_income,
 			},
 			"reports": permitted_reports(ACCOUNTS_REPORTS),
 			"rows": rows,
@@ -229,12 +241,15 @@ class ProjectAccounts:
 	def accounts(self) -> list[frappe._dict]:
 		"""Profit and Loss accounts with ledger entries, a budget or a commitment for the project,
 		that the user may read: an account hidden by a User Permission leaves out its budget and
-		commitments too."""
+		commitments too. Income accounts only for a user who may see the project's billing."""
 		names = set(self.ledger_totals) | set(self.budgets) | set(self.ordered) | set(self.requested)
 		names.discard(None)
+		filters = {"name": ["in", list(names)], "report_type": "Profit and Loss"}
+		if not self.can_see_income:
+			filters["root_type"] = "Expense"
 		return frappe.get_list(
 			"Account",
-			filters={"name": ["in", list(names)], "report_type": "Profit and Loss"},
+			filters=filters,
 			fields=["name", "account_name", "root_type"],
 			order_by="root_type desc, account_name",
 		)

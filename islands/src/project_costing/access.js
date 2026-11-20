@@ -7,8 +7,9 @@ export function hiddenFor(view) {
 	const hidden = [];
 	if (!access.timesheets) hidden.push(__("timesheets"));
 	else if (!access.labour) hidden.push(__("labour cost by person and activity"));
-	if (!access.invoices) hidden.push(__("sales invoices"));
-	if (!access.sales_orders) hidden.push(__("sales orders"));
+	// without access to billing and margin the tab has no billing to hide documents from
+	if (access.margin && !access.invoices) hidden.push(__("sales invoices"));
+	if (access.margin && !access.sales_orders) hidden.push(__("sales orders"));
 	if (!access.purchases) hidden.push(__("cost by supplier"));
 	if (!access.materials) hidden.push(__("cost by item"));
 	return hidden;

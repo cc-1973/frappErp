@@ -11,6 +11,7 @@ from erpnext.projects.doctype.project.costing.budgets import (
 	budget_control,
 	rule_label,
 )
+from erpnext.projects.doctype.project.costing.financial_access import check_financial_access
 from erpnext.projects.doctype.project.project_overview import check_access
 
 # The stages a Budget added from the project checks, by the one it checks from. The Budget form
@@ -84,8 +85,9 @@ def get_budget_periods(
 @frappe.whitelist(methods=["GET"])
 def get_project_budgets(project: str) -> dict:
 	"""The Budget records against the project that the user may read, newest first, in every
-	status, for the Budgets tab."""
+	status, for the Budgets tab. Needs access to the project's cost."""
 	check_access(project)
+	check_financial_access("cost")
 	company = frappe.db.get_value("Project", project, "company")
 	budgets = frappe.get_list(
 		"Budget",
