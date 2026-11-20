@@ -33,6 +33,7 @@ from erpnext.manufacturing.doctype.production_plan.services.material_request imp
 from erpnext.manufacturing.doctype.production_plan.services.planning_queries import (
 	get_bin_details,
 	get_plan_process_loss_percentage,
+	get_so_item_delivered_from_stock,
 )
 from erpnext.manufacturing.doctype.production_plan.services.reservation import (
 	ProductionPlanStockReservation,
@@ -364,7 +365,15 @@ class ProductionPlan(Document):
 			for row in frappe.get_all(
 				"Sales Order Item",
 				filters={"name": ("in", [key[1] for key in planned_qty])},
-				fields=["name", "item_code", "stock_qty", "stock_uom"],
+				fields=[
+					"name",
+					"item_code",
+					"stock_qty",
+					"stock_uom",
+					"delivered_qty",
+					"conversion_factor",
+					"produced_qty",
+				],
 			)
 		}
 		allowance = flt(
@@ -375,7 +384,9 @@ class ProductionPlan(Document):
 		for (sales_order, so_item), qty in planned_qty.items():
 			row = so_items[so_item]
 			unplanned_qty = flt(
-				flt(row.stock_qty) * (1 + allowance / 100) - flt(already_planned.get((sales_order, so_item))),
+				flt(row.stock_qty) * (1 + allowance / 100)
+				- flt(already_planned.get((sales_order, so_item)))
+				- get_so_item_delivered_from_stock(row),
 				precision,
 			)
 			if flt(qty, precision) > unplanned_qty:

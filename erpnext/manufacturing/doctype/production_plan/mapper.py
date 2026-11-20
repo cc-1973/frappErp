@@ -7,6 +7,7 @@
 import frappe
 
 import erpnext
+from erpnext.manufacturing.doctype.production_plan.services.planning_queries import is_so_item_open_to_plan
 from erpnext.utilities.query import get_user_permission_conditions_qb
 
 
@@ -45,7 +46,7 @@ def sales_order_query(
 		.on(table.parent == so_table.name)
 		.select(table.parent)
 		.distinct()
-		.where((table.stock_qty > table.production_plan_qty) & (table.docstatus == 1))
+		.where(is_so_item_open_to_plan(table) & (table.docstatus == 1))
 	)
 	query = _apply_sales_order_filters(query, so_table, table, filters, txt)
 	for condition in get_user_permission_conditions_qb("Sales Order", so_table):
