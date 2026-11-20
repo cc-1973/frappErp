@@ -159,10 +159,11 @@ class BOMCostingService:
 		self.doc.total_cost = (
 			self.doc.operating_cost + self.doc.raw_material_cost - self.doc.secondary_items_cost
 		)
-		self.doc.base_total_cost = (
+		self.doc.base_total_cost = flt(
 			self.doc.base_operating_cost
 			+ self.doc.base_raw_material_cost
-			- self.doc.base_secondary_items_cost
+			- self.doc.base_secondary_items_cost,
+			self.doc.precision("base_total_cost"),
 		)
 
 		if self.doc.total_cost != old_cost:
@@ -177,6 +178,10 @@ class BOMCostingService:
 				self._accumulate_operation_cost(d, update_hour_rate, save)
 		elif self.doc.get("fg_based_operating_cost"):
 			self._set_fg_based_operating_cost()
+
+		self.doc.base_operating_cost = flt(
+			self.doc.base_operating_cost, self.doc.precision("base_operating_cost")
+		)
 
 	def _accumulate_operation_cost(self, d, update_hour_rate, save=True):
 		if d.workstation or d.workstation_type:
@@ -201,7 +206,9 @@ class BOMCostingService:
 			self._set_row_hour_rate(row)
 
 		if row.hour_rate:
-			row.base_hour_rate = flt(row.hour_rate) * flt(self.doc.conversion_rate)
+			row.base_hour_rate = flt(
+				flt(row.hour_rate) * flt(self.doc.conversion_rate), row.precision("base_hour_rate")
+			)
 			if row.time_in_mins:
 				self._set_row_operating_costs(row)
 
@@ -222,9 +229,10 @@ class BOMCostingService:
 
 	def _set_row_operating_costs(self, row):
 		row.operating_cost = flt(row.hour_rate) * flt(row.time_in_mins) / 60.0
-		row.base_operating_cost = flt(row.operating_cost) * flt(self.doc.conversion_rate)
+		base_operating_cost = flt(row.operating_cost) * flt(self.doc.conversion_rate)
+		row.base_operating_cost = flt(base_operating_cost, row.precision("base_operating_cost"))
 		row.cost_per_unit = row.operating_cost / (row.batch_size or 1.0)
-		row.base_cost_per_unit = row.base_operating_cost / (row.batch_size or 1.0)
+		row.base_cost_per_unit = base_operating_cost / (row.batch_size or 1.0)
 
 	def calculate_rm_cost(self, save=False):
 		"""Fetch RM rate as per today's valuation rate and calculate totals"""
@@ -243,7 +251,9 @@ class BOMCostingService:
 				d.db_update()
 
 		self.doc.raw_material_cost = total_rm_cost
-		self.doc.base_raw_material_cost = base_total_rm_cost
+		self.doc.base_raw_material_cost = flt(
+			base_total_rm_cost, self.doc.precision("base_raw_material_cost")
+		)
 
 	def _rm_rate_args(self, d):
 		return {
@@ -265,7 +275,7 @@ class BOMCostingService:
 		d.amount = flt(
 			flt(d.rate, d.precision("rate")) * flt(d.qty, d.precision("qty")), d.precision("amount")
 		)
-		d.base_amount = d.amount * flt(self.doc.conversion_rate)
+		d.base_amount = flt(d.amount * flt(self.doc.conversion_rate), d.precision("base_amount"))
 		d.qty_consumed_per_unit = flt(d.stock_qty, d.precision("stock_qty")) / flt(
 			self.doc.quantity, self.doc.precision("quantity")
 		)
