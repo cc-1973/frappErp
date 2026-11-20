@@ -177,11 +177,35 @@ class BuyingController(SubcontractingController):
 				if reference and not item.serial_and_batch_bundle and bundle_ids.get(reference):
 					item.serial_and_batch_bundle = self.make_accepted_package(item, bundle_ids.get(reference))
 
+				elif (
+					reference
+					and bundle_ids.get(reference)
+					and item.serial_and_batch_bundle
+					and self.has_stock_qty_changed(item)
+					and not frappe.db.get_value(
+						"Serial and Batch Bundle", item.serial_and_batch_bundle, "has_serial_no"
+					)
+				):
+					self.resize_accepted_package(item, bundle_ids.get(reference))
+
 				elif item.serial_and_batch_bundle:
 					self.resize_package(item, "serial_and_batch_bundle", "qty")
 
 				if item.get(field) and bundle_ids.get(item.get(field)):
 					self.set_rejected_package(item, bundle_ids.get(item.get(field)))
+
+	def has_stock_qty_changed(self, row) -> bool:
+		if self.is_new():
+			return False
+
+		old_row = next((d for d in self.get_doc_before_save().items if d.name == row.name), None)
+		return bool(old_row) and get_stock_qty(old_row, old_row.qty) != get_stock_qty(row, row.qty)
+
+	def resize_accepted_package(self, row, package) -> None:
+		"""Rebuild the draft package of a row whose stock qty changed from the delivered package."""
+		old_package = row.serial_and_batch_bundle
+		row.serial_and_batch_bundle = self.make_accepted_package(row, package)
+		frappe.delete_doc("Serial and Batch Bundle", old_package, force=True, ignore_permissions=True)
 
 	def make_accepted_package(self, row, package) -> str:
 		"""Package of the material the row accepts.
@@ -283,6 +307,7 @@ class BuyingController(SubcontractingController):
 			do_not_submit=True,
 			qty=get_stock_qty(row, row.rejected_qty),
 			exclude_serial_nos=self.get_accepted_serial_nos(row),
+			from_last=True,
 		)
 
 		frappe.db.set_value("Serial and Batch Bundle", row.rejected_serial_and_batch_bundle, "is_rejected", 1)
